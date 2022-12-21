@@ -1,5 +1,5 @@
 # run this code as the sender
-# always run distance_reciever first
+# always run distance_receiver first
 
 from utils import *
 import time
@@ -35,4 +35,10 @@ if __name__ == '__main__':
     stream.close()
     p.terminate()
 
-    #
+    # start listening for response
+
+    # when get a large amplitude => stop timer, stop listening
+
+    # get time elapsed
+
+    # measure distance
