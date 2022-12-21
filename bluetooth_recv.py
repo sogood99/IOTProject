@@ -27,7 +27,7 @@ class Decoder:
             return False
 
         f, t, Zxx = signal.stft(
-            data, RATE, nperseg=SAMPLES)
+            data, RATE, nperseg=SAMPLES//2, noverlap=0)
         amp = np.abs(Zxx)
 
         off_freq_index = findNearest(f, FREQ_OFF)
@@ -54,80 +54,80 @@ class Decoder:
         return notFinish
 
     def metric(self, A, i):
-        return sigmoid(7*(A[i]-1/3)) * sigmoid(7*(A[i+1]-1/3))
+        # leftMetric = sigmoid(7*(A[i]-1/3))
+        # rightMetric = sigmoid(7*(A[i+1]-1/3))
+        # if leftMetric > 3/4:
+        #     return 1
+        # if leftMetric > 1/2 and rightMetric > 1/2:
+        #     return 1
+        if A[2*i+1] > 1/2:
+            return True
+        return False
 
     # find if there is bit value
     def findNextNonZero(self, start):
         for i in range(start, len(self.buffer_off)-1):
             metricOn = self.metric(self.buffer_on, i)
             metricOff = self.metric(self.buffer_off, i)
-            if metricOn > 1/2 or metricOff > 1/2:
+            if metricOn or metricOff:
                 return i
 
         return -1
 
     def processBuffer(self):
         assert len(self.buffer_off) == len(self.buffer_on)
-        current = 0
-        while current < len(self.buffer_off) and current >= 0:
-            bits = ""
+        current = self.findNextNonZero(0)
+        bits = ""
+        while current < len(self.buffer_off)//2 and current >= 0:
+            print(current)
 
-            satisfyOn, satisfyOff = False, False
-            for i in range(current, len(self.buffer_on), 2):
-                if i + 1 == len(self.buffer_on):
-                    current = -1
-                    break
+            payloadLength = self.decodeHeader(current)
+            print(payloadLength)
 
-                # check if exactly one of 1/0 is satisfied
-                satisfyOn = self.metric(self.buffer_on, i) > 1/2
-                satisfyOff = self.metric(self.buffer_off, i) > 1/2
-                if satisfyOn == satisfyOff:  # both false => end, both true => end
-                    # finished
-                    print(self.buffer_on[i], self.buffer_on[i+1])
-                    print(self.buffer_off[i], self.buffer_off[i+1])
-                    print(self.metric(self.buffer_on, i))
-                    print(self.metric(self.buffer_off, i))
-                    current = self.findNextNonZero(i+1)
-                    break
-                else:
-                    bits += "1" if satisfyOn else "0"
-            current = self.findNextNonZero(i+1)
+            if payloadLength == None:
+                # false positive
+                current = self.findNextNonZero(current+1)
+            else:
+                # everything fine
+                payloadStart = current + BLUETOOTH_PREFIX_LEN + LEN_SIZE
+                assert payloadStart+payloadLength <= len(self.buffer_off)//2
+                decodedStr = self.decodeBTBits(payloadStart, payloadLength)
+                self.output.append(decodedStr)
 
-            print(current, len(self.buffer_off))
-            print(bits)
+                current = self.findNextNonZero(
+                    current + BLUETOOTH_PREFIX_LEN + LEN_SIZE + payloadLength + 1)
+
             # process bits
-            decodedStr = self.decodeBTBits(bits)
-            self.output.append(decodedStr)
         self.buffer_off = []
         self.buffer_on = []
 
+    def decodeHeader(self, start):
+        bits = ""
+        assert len(self.buffer_on) >= start + BLUETOOTH_PREFIX_LEN + LEN_SIZE
+
+        for i in range(BLUETOOTH_PREFIX_LEN + LEN_SIZE):
+            if self.metric(self.buffer_on, start+i):
+                bits += "1"
+            else:
+                bits += "0"
+
+        # if bits[:BLUETOOTH_PREFIX_LEN] != BLUETOOTH_PREFIX:
+        #     return None
+
+        return bin2Int(bits[BLUETOOTH_PREFIX_LEN: BLUETOOTH_PREFIX_LEN + LEN_SIZE][::-1]) * 8
+
     # decode bluetooth bits to ascii, if error output None
-    def decodeBTBits(self, bits):
-        print("Decoding BT: {}".format(bits))
-        if len(bits) <= BLUETOOTH_PREFIX_LEN + LEN_SIZE:
-            print("ERROR: BT Packet too small")
-            return None
 
-        if bits[:BLUETOOTH_PREFIX_LEN] != BLUETOOTH_PREFIX:
-            print("ERROR: BT Packet Prefix doesnt match")
-            return None
-
-        payloadLength = bin2Int(
-            bits[BLUETOOTH_PREFIX_LEN: BLUETOOTH_PREFIX_LEN+LEN_SIZE][::-1])
-        packetLength = BLUETOOTH_PREFIX_LEN + LEN_SIZE + payloadLength * 8
-        if len(bits) < packetLength:
-            print("ERROR: Payload size doesnt match")
-            return None
-
+    def decodeBTBits(self, start, length):
+        if length == 0:
+            return ""
         decodedStr = ""
-        for i in range(BLUETOOTH_PREFIX_LEN+8, packetLength, 8):
-            binAscii = bits[i:i+8]
-            decodedStr += bin2ASCII(binAscii)
+        for i in range(start, start+length):
+            if self.metric(self.buffer_on, start+i):
+                decodedStr += "1"
+            else:
+                decodedStr += "0"
 
-        otherDecodedPacket = self.decodeBTBits(bits[packetLength:])
-        decodedStr += otherDecodedPacket if otherDecodedPacket else ""
-
-        print("Decoded: {}".format(decodedStr))
         return decodedStr
 
     def getOutput(self) -> str:
@@ -145,6 +145,6 @@ if __name__ == "__main__":
     with open('test_recv.txt', 'r') as f:
         data = np.loadtxt(f)
     print(len(data)//SAMPLES)
-    # data = np.concatenate([[0] * (SAMPLES // 2), data, [0]*(1*(SAMPLES//2))])
+    data = np.concatenate([[0] * (SAMPLES // 2), data, [0]*(1*(SAMPLES//2))])
     print(decoder.process(data))
     print(decoder.processBuffer())
