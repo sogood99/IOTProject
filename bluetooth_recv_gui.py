@@ -1,16 +1,18 @@
 import sys
 from PyQt5.QtWidgets import *
 from PyQt5.QtCore import *
-import matplotlib.pyplot as plt
+from matplotlib.backends.backend_qt5agg import FigureCanvasQTAgg
+from matplotlib.figure import Figure
 import pyaudio
 import numpy as np
 import time
 from threading import Thread
+from bluetooth_recv import Decoder
 
 DEBUG = True
 
 RATE = 44100
-CHUNK = RATE//2  # RATE / number of updates per second
+CHUNK = RATE//5  # RATE / number of updates per second
 
 
 def soundplot(stream):
@@ -66,8 +68,11 @@ class CustomWidget(QWidget):
         if self.debug:
             self.total_data = []
 
-        self.p = pyaudio.PyAudio()
+        self.p = None
         self.stream = None
+
+        self.firstRecv = True
+        self.decoder = Decoder()
 
     def close(self) -> bool:
         self.closeStream()
@@ -88,16 +93,23 @@ class CustomWidget(QWidget):
             "QLabel { background-color: grey }")
         self.recieveLabel.setText("Not Recieving")
         self.recieve = False
+        self.firstRecv = True
         if self.debug:
-            plt.plot(self.total_data)
-            plt.ylim(-32768, 32767)
-            plt.show()
+            canvas = FigureCanvasQTAgg(Figure(figsize=(8, 5)))
+            ax = canvas.figure.subplots()
+            canvas.flush_events()
+            canvas.draw()
+            ax.clear()
+            ax.plot(self.total_data)
+            ax.set_ylim(-32768, 32767)
+            canvas.show()
             np.savetxt(open("test_recv.txt", "w"), self.total_data)
 
     def closeStream(self):
         if self.stream:
             self.stream.stop_stream()
             self.stream.close()
+        if self.p:
             self.p.terminate()
 
         self.stream = None
@@ -118,16 +130,27 @@ class CustomWidget(QWidget):
                                   frames_per_buffer=CHUNK)
 
         self.total_data = np.array([])
+        lastHasValue = False
         while self.recieve:
-            data = np.frombuffer(self.stream.read(CHUNK), dtype=np.int16)
-            self.total_data = np.append(self.total_data, data)
+            if self.firstRecv:
+                # remove first recv due to
+                np.frombuffer(self.stream.read(CHUNK), dtype=np.int16)
+                self.firstRecv = False
+            else:
+                data = np.frombuffer(self.stream.read(CHUNK), dtype=np.int16)
+                currentVal = self.decoder.process(data)
+                if lastHasValue == True and currentVal == False:
+                    print("Finished Decoding")
+                lastHasValue = currentVal
+                self.total_data = np.append(self.total_data, data)
 
         self.closeStream()
 
-        msg = QMessageBox()
-        msg.setText("Finished Recv")
-        msg.setStandardButtons(QMessageBox.Ok)
-        msg.exec()
+        if not self.debug:
+            msg = QMessageBox()
+            msg.setText("Finished Recv")
+            msg.setStandardButtons(QMessageBox.Ok)
+            msg.exec()
 
     def showCanvas(self, i, ax):
         # Output the resutls to FigureCanvas from matplotlib

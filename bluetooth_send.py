@@ -47,7 +47,7 @@ def FSK_signal(input_bin):
 
 
 if __name__ == "__main__":
-    s = "This is the code inside the thing for the thingy magig"
+    s = "This is the code inside the thing for the thingy magisdfsdfsdfsdfsdfsdg"
 
     bits = process_string(s)
     print(len(bits[0]))
@@ -65,4 +65,5 @@ if __name__ == "__main__":
 
     print(len(bits[0]))
     with open('test.txt', 'w') as f:
-        np.savetxt(f, signal)
+        t = np.concatenate(signal)
+        np.savetxt(f, t)

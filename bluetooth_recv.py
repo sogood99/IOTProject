@@ -23,6 +23,9 @@ class Decoder:
     # if true, wait for more data
     # if false, start processing data in buffer
     def process(self, data) -> bool:
+        if len(data) == 0:
+            return False
+
         f, t, Zxx = signal.stft(
             data, RATE, nperseg=SAMPLES)
         amp = np.abs(Zxx)
@@ -51,7 +54,7 @@ class Decoder:
         return notFinish
 
     def metric(self, A, i):
-        return sigmoid(5*(A[i]-1/3)) * sigmoid(5*(A[i+1]-1/3))
+        return sigmoid(7*(A[i]-1/3)) * sigmoid(7*(A[i+1]-1/3))
 
     # find if there is bit value
     def findNextNonZero(self, start):
@@ -111,15 +114,18 @@ class Decoder:
 
         payloadLength = bin2Int(
             bits[BLUETOOTH_PREFIX_LEN: BLUETOOTH_PREFIX_LEN+LEN_SIZE][::-1])
-        if len(bits) != BLUETOOTH_PREFIX_LEN + LEN_SIZE + payloadLength * 8:
-            print(len(bits), BLUETOOTH_PREFIX_LEN + LEN_SIZE + payloadLength)
+        packetLength = BLUETOOTH_PREFIX_LEN + LEN_SIZE + payloadLength * 8
+        if len(bits) < packetLength:
             print("ERROR: Payload size doesnt match")
             return None
 
         decodedStr = ""
-        for i in range(BLUETOOTH_PREFIX_LEN+8, len(bits), 8):
+        for i in range(BLUETOOTH_PREFIX_LEN+8, packetLength, 8):
             binAscii = bits[i:i+8]
             decodedStr += bin2ASCII(binAscii)
+
+        otherDecodedPacket = self.decodeBTBits(bits[packetLength:])
+        decodedStr += otherDecodedPacket if otherDecodedPacket else ""
 
         print("Decoded: {}".format(decodedStr))
         return decodedStr
