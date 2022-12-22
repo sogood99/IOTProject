@@ -30,6 +30,7 @@ if __name__ == '__main__':
     s.connect((socket.gethostname(), port))
 
     print("Connected to recv.py")
+
     # play audio
     p = pyaudio.PyAudio()
     stream = p.open(format=pyaudio.paInt16, channels=1, rate=RATE, output=True)
