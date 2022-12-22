@@ -47,23 +47,22 @@ def FSK_signal(input_bin):
 
 
 if __name__ == "__main__":
-    s = "This is the code inside the thing for the thingy magisdfsdfsdfsdfsdfsdg"
+    s = "This is the code "
 
     bits = process_string(s)
-    print(len(bits[0]))
     signal = [FSK_signal(bitstream) for bitstream in bits]
 
-    p = pyaudio.PyAudio()
-    stream = p.open(format=p.get_format_from_width(
-        width=2), channels=1, rate=RATE, output=True)
-    for s in signal:
-        stream.write(s)
-    stream.stop_stream()
-    stream.close()
+    # p = pyaudio.PyAudio()
+    # stream = p.open(format=p.get_format_from_width(
+    #     width=2), channels=1, rate=RATE, output=True)
+    # for s in signal:
+    #     stream.write(s)
+    # stream.stop_stream()
+    # stream.close()
 
-    p.terminate()
+    # p.terminate()
 
-    print(len(bits[0]))
+    print(bits[0])
     with open('test.txt', 'w') as f:
         t = np.concatenate(signal)
         np.savetxt(f, t)

@@ -27,7 +27,7 @@ class Decoder:
             return False
 
         f, t, Zxx = signal.stft(
-            data, RATE, nperseg=SAMPLES//2, noverlap=0)
+            data, RATE, nperseg=SAMPLES, noverlap=0, boundary=None)
         amp = np.abs(Zxx)
 
         off_freq_index = findNearest(f, FREQ_OFF)
@@ -53,6 +53,8 @@ class Decoder:
             plt.show()
         return notFinish
 
+    # A = self.buffer_on or buffer_off,
+    # returns the probability that i has on/off value
     def metric(self, A, i):
         # leftMetric = sigmoid(7*(A[i]-1/3))
         # rightMetric = sigmoid(7*(A[i+1]-1/3))
@@ -60,16 +62,15 @@ class Decoder:
         #     return 1
         # if leftMetric > 1/2 and rightMetric > 1/2:
         #     return 1
-        if A[2*i+1] > 1/2:
-            return True
-        return False
+        return A[i]
 
     # find if there is bit value
+
     def findNextNonZero(self, start):
         for i in range(start, len(self.buffer_off)-1):
             metricOn = self.metric(self.buffer_on, i)
             metricOff = self.metric(self.buffer_off, i)
-            if metricOn or metricOff:
+            if metricOn > 1/2 or metricOff > 1/2:
                 return i
 
         return -1
@@ -77,25 +78,28 @@ class Decoder:
     def processBuffer(self):
         assert len(self.buffer_off) == len(self.buffer_on)
         current = self.findNextNonZero(0)
-        bits = ""
-        while current < len(self.buffer_off)//2 and current >= 0:
-            print(current)
+
+        bitLength = len(self.buffer_off)
+
+        while current + HEADER_LEN <= bitLength and current >= 0:
+            print("Start", current)
 
             payloadLength = self.decodeHeader(current)
-            print(payloadLength)
+            print("Payload Length", payloadLength)
 
             if payloadLength == None:
                 # false positive
                 current = self.findNextNonZero(current+1)
             else:
                 # everything fine
-                payloadStart = current + BLUETOOTH_PREFIX_LEN + LEN_SIZE
-                assert payloadStart+payloadLength <= len(self.buffer_off)//2
+                payloadStart = current + HEADER_LEN
+                if payloadStart + payloadLength > bitLength:
+                    break
                 decodedStr = self.decodeBTBits(payloadStart, payloadLength)
                 self.output.append(decodedStr)
 
                 current = self.findNextNonZero(
-                    current + BLUETOOTH_PREFIX_LEN + LEN_SIZE + payloadLength + 1)
+                    current + HEADER_LEN + payloadLength + 1)
 
             # process bits
         self.buffer_off = []
@@ -103,16 +107,13 @@ class Decoder:
 
     def decodeHeader(self, start):
         bits = ""
-        assert len(self.buffer_on) >= start + BLUETOOTH_PREFIX_LEN + LEN_SIZE
+        assert len(self.buffer_on) >= start + HEADER_LEN
 
-        for i in range(BLUETOOTH_PREFIX_LEN + LEN_SIZE):
-            if self.metric(self.buffer_on, start+i):
+        for i in range(HEADER_LEN):
+            if self.metric(self.buffer_on, start+i) > 1/2:
                 bits += "1"
             else:
                 bits += "0"
-
-        # if bits[:BLUETOOTH_PREFIX_LEN] != BLUETOOTH_PREFIX:
-        #     return None
 
         return bin2Int(bits[BLUETOOTH_PREFIX_LEN: BLUETOOTH_PREFIX_LEN + LEN_SIZE][::-1]) * 8
 
@@ -122,11 +123,15 @@ class Decoder:
         if length == 0:
             return ""
         decodedStr = ""
-        for i in range(start, start+length):
-            if self.metric(self.buffer_on, start+i):
-                decodedStr += "1"
-            else:
-                decodedStr += "0"
+        for i in range(0, length, 8):
+            asciiBit = ""
+            asciiStart = start + i
+            for j in range(8):
+                if self.metric(self.buffer_on, asciiStart + j) > 1/2:
+                    asciiBit += "1"
+                else:
+                    asciiBit += "0"
+            decodedStr += bin2ASCII(asciiBit)
 
         return decodedStr
 
@@ -145,6 +150,12 @@ if __name__ == "__main__":
     with open('test_recv.txt', 'r') as f:
         data = np.loadtxt(f)
     print(len(data)//SAMPLES)
-    data = np.concatenate([[0] * (SAMPLES // 2), data, [0]*(1*(SAMPLES//2))])
+    # data = np.concatenate([[0] * (SAMPLES // 2), data, [0]*(1*(SAMPLES//2))])
     print(decoder.process(data))
+    print(decoder.getOutput())
+    import matplotlib.pyplot as plt
+    x = np.arange(len(decoder.buffer_off))
+    plt.scatter(x, decoder.buffer_on, label="one")
+    plt.scatter(x, decoder.buffer_off, label="zero")
+    plt.show()
     print(decoder.processBuffer())
