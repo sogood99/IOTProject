@@ -123,6 +123,7 @@ class Decoder:
         if length == 0:
             return ""
         decodedStr = ""
+        decodedBits = ""
         for i in range(0, length, 8):
             asciiBit = ""
             asciiStart = start + i
@@ -132,6 +133,7 @@ class Decoder:
                 else:
                     asciiBit += "0"
             decodedStr += bin2ASCII(asciiBit)
+            decodedBits += asciiBit
 
         return decodedStr
 
@@ -150,12 +152,12 @@ if __name__ == "__main__":
     with open('test_recv.txt', 'r') as f:
         data = np.loadtxt(f)
     print(len(data)//SAMPLES)
-    # data = np.concatenate([[0] * (SAMPLES // 2), data, [0]*(1*(SAMPLES//2))])
     print(decoder.process(data))
-    print(decoder.getOutput())
     import matplotlib.pyplot as plt
     x = np.arange(len(decoder.buffer_off))
     plt.scatter(x, decoder.buffer_on, label="one")
     plt.scatter(x, decoder.buffer_off, label="zero")
     plt.show()
     print(decoder.processBuffer())
+    print(decoder.getOutput())
+    print(decoder.getOutput())

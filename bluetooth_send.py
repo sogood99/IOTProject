@@ -47,20 +47,20 @@ def FSK_signal(input_bin):
 
 
 if __name__ == "__main__":
-    s = "This is the code "
+    s = "This is the code and the reasoning behind this is that for which humans find thast in from that"
 
     bits = process_string(s)
     signal = [FSK_signal(bitstream) for bitstream in bits]
 
-    # p = pyaudio.PyAudio()
-    # stream = p.open(format=p.get_format_from_width(
-    #     width=2), channels=1, rate=RATE, output=True)
-    # for s in signal:
-    #     stream.write(s)
-    # stream.stop_stream()
-    # stream.close()
+    p = pyaudio.PyAudio()
+    stream = p.open(format=p.get_format_from_width(
+        width=2), channels=1, rate=RATE, output=True)
+    for sig in signal:
+        stream.write(np.int16(sig).tobytes())
+    stream.stop_stream()
+    stream.close()
 
-    # p.terminate()
+    p.terminate()
 
     print(bits[0])
     with open('test.txt', 'w') as f:
