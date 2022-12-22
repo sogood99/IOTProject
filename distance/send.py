@@ -4,20 +4,20 @@
 import pyaudio
 import numpy as np
 import socket
-import time
+from .utils import *
 
-RATE = 48000
-FREQ = 1000
-AMPLITUDE = 32767
-DURATION = 0.1
+
+# Beep beep sender
+class Sender:
+    def __init__(self):
+        self.s_recv = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
 
 
 if __name__ == '__main__':
-
     # create sine wave
     num_samples = DURATION * RATE
     sine_wave = (AMPLITUDE * np.sin(2 * np.pi *
-                 np.arange(num_samples) * FREQ / RATE)).astype(np.int16)
+                                    np.arange(num_samples) * FREQ / RATE)).astype(np.int16)
 
     # connect to receiver server
     port = 5000
@@ -34,7 +34,6 @@ if __name__ == '__main__':
     s.connect((socket.gethostname(), port))
 
     stream.write(sine_wave)
-
 
     stream.stop_stream()
     stream.close()
