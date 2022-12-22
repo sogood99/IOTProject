@@ -6,7 +6,7 @@ from matplotlib.figure import Figure
 import pyaudio
 import numpy as np
 import time
-from bluetooth_recv import Decoder
+from .recv import Decoder
 from utils import *
 
 
@@ -209,10 +209,13 @@ class CustomWidget(QWidget):
         self.newWorker()
 
 
-if __name__ == "__main__":
-    DEBUG = False
-
+def startRecvGUI(debug=False):
     a = QApplication(sys.argv)
-    w = CustomWidget(debug=DEBUG)
+    w = CustomWidget(debug=debug)
     w.show()
     sys.exit(a.exec())
+
+
+if __name__ == "__main__":
+    DEBUG = False
+    startRecvGUI(DEBUG)

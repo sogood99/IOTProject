@@ -3,3 +3,4 @@ scipy
 wheel
 pyaudio
 PyQt5
+matplotlib

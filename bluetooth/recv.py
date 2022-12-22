@@ -1,9 +1,8 @@
 from scipy import signal
 from scipy.special import expit as sigmoid
-from utils import *
 import matplotlib.pyplot as plt
-from utils import *
 import numpy as np
+from utils import *
 
 
 def findNearest(array, value):
