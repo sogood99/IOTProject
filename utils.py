@@ -15,6 +15,14 @@ BLUETOOTH_PREFIX = PREAMBLE + ACCESS_ADDRESS
 BLUETOOTH_PREFIX_LEN = len(BLUETOOTH_PREFIX)
 HEADER_LEN = BLUETOOTH_PREFIX_LEN + LEN_SIZE
 MIN_AMP = 500
+RECV_PORT = 5000
+SEND_PORT = 5001
+FREQ = 1000
+AMPLITUDE = 32767
+
+
+def findNearest(array, value):
+    return np.abs(array - value).argmin()
 
 
 def bin2Int(bin):

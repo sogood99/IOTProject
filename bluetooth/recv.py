@@ -5,10 +5,6 @@ import numpy as np
 from utils import *
 
 
-def findNearest(array, value):
-    return np.abs(array - value).argmin()
-
-
 class Decoder:
     def __init__(self, debug=False) -> None:
         self.debug = debug

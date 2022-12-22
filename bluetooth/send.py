@@ -43,7 +43,7 @@ class Sender:
             else:
                 signal = np.append(signal, on_signal)
 
-        signal *= 32767
+        signal *= AMPLITUDE
         signal = np.int16(signal)
         return signal
 

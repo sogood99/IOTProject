@@ -2,74 +2,83 @@ import socket
 import time
 import numpy as np
 import pyaudio
-import matplotlib.pyplot as plt
+import threading
 from scipy.fft import fft, fftfreq
-import matplotlib.pyplot as plt
+from utils import *
 
-RATE = 48000
-FREQ = 1000
-AMPLITUDE = 32767
-DURATION = 0.1
-CHUNK = 20
+# beep beep receiver
 
-def findNearest(array, value):
-    return np.abs(array - value).argmin()
+
+class Recv:
+    def __init__(self):
+        self.s_recv = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+        self.s_recv.bind(('0.0.0.0', RECV_PORT))
+
+        self.s_send = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+
+        self.p_in = pyaudio.PyAudio()
+        self.p_out = pyaudio.PyAudio()
+        self.stream_in = None
+        self.stream_out = None
+
+        self.t_a1, self.t_a2, self.t_a3 = None, None, None
+        self.t_b1, self.t_b2, self.t_b3 = None, None, None
+
+        self.listenThread = threading.Thread(target=self.startListen)
+        self.listenThread.start()
+
+        self.sendThread = None
+
+    def startListen(self):
+        self.stream_in = self.p_in.open(
+            format=pyaudio.paInt16, channels=1, rate=RATE, input=True)
+
+        isA3 = True
+        while True:
+            data = self.stream_in.read(CHUNK, exception_on_overflow=False)
+            data = np.frombuffer(data, dtype=np.int16)
+            freq = findNearest(fftfreq(len(data), d=1 / RATE), FREQ)
+            data_fft = fft(data)[freq]
+
+            if data_fft > 1500:
+                if isA3:
+                    self.t_a3 = time.time()
+                    isA3 = False
+                else:
+                    self.t_b2 = time.time()
+                    break
+
+        self.stream_in.stop_stream()
+        self.stream_in.close()
+        self.p_in.terminate()
+
+    def startSend(self, addr):
+        wav = (AMPLITUDE * np.sin(2 * np.pi * np.arange(SAMPLES)
+               * FREQ / RATE)).astype(np.int16)
+        self.stream_out = self.p_out.open(format=pyaudio.paInt16, channels=1, rate=RATE, output=True,
+                                          frames_per_buffer=CHUNK)
+        self.s_send.connect((addr, SEND_PORT))
+
+        self.t_b1 = time.time()
+        self.stream_out.write(wav)
+
+        self.stream_out.stop_stream()
+        self.stream_out.close()
+        self.p_out.terminate()
+
+    def start(self):
+        self.s_recv.listen(1)
+        _, addr = self.s_recv.accept()
+
+        self.t_a1 = time.time()
+
+        self.sendThread = threading.Thread(target=self.startSend, args=(addr,))
+        self.sendThread.start()
+
+        self.sendThread.join()
+        self.listenThread.join()
+
 
 # listen for connection on socket, when received connection, start timer
 if __name__ == '__main__':
-    # take the server name and port name
-    port = 5000
-    
-    # create a socket at server side using TCP / IP protocol
-    s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-
-    # bind the socket with server and port number
-    s.bind((socket.gethostname(), port))
-
-    # listen for audio, if amplitude is above threshold, stop timer
-    p = pyaudio.PyAudio()
-    stream = p.open(format=pyaudio.paInt16, channels=1, rate=RATE,
-                    input=True, output=True, frames_per_buffer=CHUNK,
-                    )
-
-
-    # allow maximum 1 connection to the socket
-    s.listen(1)
-
-    # wait till a client accept connection
-    c, addr = s.accept()
-    start_time = time.time()
-
-    count = 0
-    total_data = np.array([])
-    while True:
-        data = stream.read(CHUNK, exception_on_overflow = False)
-        data_int = np.frombuffer(data, dtype=np.int16)
-        # xf = fftfreq(CHUNK, 1 / RATE)
-        # amp = np.abs(fft(data_int))
-        total_data = np.append(total_data, data_int)
-        # idx = findNearest(xf, FREQ)
-        if abs(data_int).max() > 2000:
-            count += np.where(abs(data_int) > 2000)[0][0]
-            # count += CHUNK/2
-            break
-        else:
-            count += CHUNK
-    plt.plot(total_data)
-    plt.show()
-
-    # stop_time = time.time()
-    stream.stop_stream()
-    stream.close()
-    p.terminate()
-
-    print(count)
-    #t_diff = count / RATE
-    #distance = 340.29 * (t_diff)*100
-    #print(t_diff)
-    #print("Distance: ", distance, "cm")
-
-    # calculate distance truth = 60 cm
-    # distance = 340.29 * (stop_time - start_time)*100
-    # print(stop_time - start_time)
-    # print("Distance: ", distance, "cm")
+    pass
