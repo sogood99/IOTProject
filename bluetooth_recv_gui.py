@@ -6,19 +6,96 @@ from matplotlib.figure import Figure
 import pyaudio
 import numpy as np
 import time
-from threading import Thread
 from bluetooth_recv import Decoder
-
-DEBUG = True
-
-RATE = 44100
-CHUNK = RATE//5  # RATE / number of updates per second
+from utils import *
 
 
-def soundplot(stream):
-    t1 = time.time()
-    data = np.fromstring(stream.read(CHUNK), dtype=np.int16)
-    print(data)
+class PyAudioWorker(QObject):
+    finished = pyqtSignal(str, float)
+
+    def __init__(self, widget) -> None:
+        self.widget = widget
+
+        self.p = None
+        self.stream = None
+
+        self.recieve = False
+        self.firstRecv = True
+
+        self.decoder = Decoder()
+        self.decodedText = ""
+        self.timeUsed = 0
+
+        self.debug = widget.debug
+        self.total_data = np.array([])
+
+        super().__init__()
+
+    def closeStream(self):
+        if self.stream:
+            self.stream.stop_stream()
+            self.stream.close()
+        if self.p:
+            self.p.terminate()
+
+        self.stream = None
+        self.p = None
+
+    def stopListen(self):
+        self.recieve = False
+        self.firstRecv = True
+
+    def startListen(self):
+        """
+            Start collecting data
+        """
+        if self.recieve:
+            return
+        self.recieve = True
+
+        # Finish setup, start recieving
+
+        self.p = pyaudio.PyAudio()
+        self.stream = self.p.open(format=pyaudio.paInt16, channels=1, rate=RATE, input=True,
+                                  frames_per_buffer=CHUNK)
+
+        self.total_data = np.array([])
+        lastBool = False
+        while self.recieve:
+            if self.firstRecv:
+                # remove first recv due to
+                np.frombuffer(self.stream.read(CHUNK), dtype=np.int16)
+                self.firstRecv = False
+            else:
+                data = np.frombuffer(self.stream.read(CHUNK), dtype=np.int16)
+                currentBool = self.decoder.process(data)
+
+                if self.debug:
+                    self.total_data = np.append(self.total_data, data)
+                    print(self.total_data)
+
+                if lastBool == False and currentBool == True:
+                    self.startTime = time.time()
+
+                if lastBool == True and currentBool == False:
+                    print("Finished Decoding")
+
+                    self.decodedText = ""
+                    text = self.decoder.getOutput()
+                    while text != None:
+                        self.decodedText += text
+                        text = self.decoder.getOutput()
+
+                    if self.decodedText != "":
+                        self.timeUsed = time.time()-self.startTime
+                        self.finished.emit(self.decodedText, self.timeUsed)
+                        self.recieve = False
+
+                lastBool = currentBool
+
+        self.closeStream()
+        if self.timeUsed == 0:
+            self.finished.emit("", 0)
 
 
 class CustomWidget(QWidget):
@@ -63,27 +140,50 @@ class CustomWidget(QWidget):
         self.textBox.setReadOnly(True)
         self.textBox.show()
 
-        self.recieve = False
         self.debug = debug
         if self.debug:
             self.total_data = []
 
-        self.p = None
-        self.stream = None
+        self.worker = PyAudioWorker(self)
+        self.thread = QThread(self)
 
-        self.firstRecv = True
-        self.decoder = Decoder()
+    def closeEvent(self, a0) -> None:
+        print("Closing")
+        self.closeWorker()
+        return super().closeEvent(a0)
 
-    def close(self) -> bool:
-        self.closeStream()
-        return super().close()
+    def closeWorker(self):
+        self.worker.stopListen()
+        self.thread.quit()
+        self.thread.wait()
+
+    def newWorker(self):
+        self.worker = PyAudioWorker(self)
+        self.thread = QThread(self)
 
     def start(self):
         self.recieveIndicator.setStyleSheet(
             "QLabel { background-color: green }")
         self.recieveLabel.setText("Recieving")
-        newThread = Thread(target=self.startListen)
-        newThread.start()
+
+        self.closeWorker()
+        self.newWorker()
+
+        self.worker.moveToThread(self.thread)
+        self.thread.started.connect(self.worker.startListen)
+
+        def pyaudioFinished(decodedText, timeUsed):
+            if decodedText != "" or timeUsed != 0:
+                self.textBox.setText(decodedText)
+                msg = QMessageBox()
+                msg.setText("Finished Recv Text: {}s".format(timeUsed))
+                msg.setStandardButtons(QMessageBox.Ok)
+                msg.exec()
+            self.stop()
+        self.worker.finished.connect(pyaudioFinished)
+        self.thread.finished.connect(self.thread.deleteLater)
+
+        self.thread.start()
 
     def reset(self):
         self.textBox.setText("")
@@ -92,9 +192,8 @@ class CustomWidget(QWidget):
         self.recieveIndicator.setStyleSheet(
             "QLabel { background-color: grey }")
         self.recieveLabel.setText("Not Recieving")
-        self.recieve = False
-        self.firstRecv = True
         if self.debug:
+            self.total_data = self.worker.total_data
             canvas = FigureCanvasQTAgg(Figure(figsize=(8, 5)))
             ax = canvas.figure.subplots()
             canvas.flush_events()
@@ -103,63 +202,17 @@ class CustomWidget(QWidget):
             ax.plot(self.total_data)
             ax.set_ylim(-32768, 32767)
             canvas.show()
-            np.savetxt(open("test_recv.txt", "w"), self.total_data)
-
-    def closeStream(self):
-        if self.stream:
-            self.stream.stop_stream()
-            self.stream.close()
-        if self.p:
-            self.p.terminate()
-
-        self.stream = None
-        self.p = None
-
-    def startListen(self):
-        """
-            Start collecting data
-        """
-        if self.recieve:
-            return
-        self.recieve = True
-
-        # Finish setup, start recieving
-
-        self.p = pyaudio.PyAudio()
-        self.stream = self.p.open(format=pyaudio.paInt16, channels=1, rate=RATE, input=True,
-                                  frames_per_buffer=CHUNK)
-
-        self.total_data = np.array([])
-        lastHasValue = False
-        while self.recieve:
-            if self.firstRecv:
-                # remove first recv due to
-                np.frombuffer(self.stream.read(CHUNK), dtype=np.int16)
-                self.firstRecv = False
-            else:
-                data = np.frombuffer(self.stream.read(CHUNK), dtype=np.int16)
-                currentVal = self.decoder.process(data)
-                if lastHasValue == True and currentVal == False:
-                    print("Finished Decoding")
-                lastHasValue = currentVal
-                self.total_data = np.append(self.total_data, data)
-
-        self.closeStream()
-
-        if not self.debug:
-            msg = QMessageBox()
-            msg.setText("Finished Recv")
-            msg.setStandardButtons(QMessageBox.Ok)
-            msg.exec()
-
-    def showCanvas(self, i, ax):
-        # Output the resutls to FigureCanvas from matplotlib
-        ax.clear()
-        ax.set_title("Iteration={}".format(i), fontsize=16)
+            print(len(self.total_data))
+            with open("test_recv.txt", "w") as f:
+                np.savetxt(f, self.total_data)
+        self.closeWorker()
+        self.newWorker()
 
 
 if __name__ == "__main__":
+    DEBUG = False
+
     a = QApplication(sys.argv)
     w = CustomWidget(debug=DEBUG)
     w.show()
-    a.exec()
+    sys.exit(a.exec())

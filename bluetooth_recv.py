@@ -5,8 +5,6 @@ import matplotlib.pyplot as plt
 from utils import *
 import numpy as np
 
-DEBUG = True
-
 
 def findNearest(array, value):
     return np.abs(array - value).argmin()
@@ -15,8 +13,9 @@ def findNearest(array, value):
 class Decoder:
     def __init__(self, debug=False) -> None:
         self.debug = debug
-        self.buffer_on = []
-        self.buffer_off = []
+        self.buffer = np.array([])
+        self.buffer_on = np.array([])
+        self.buffer_off = np.array([])
         self.output = []
 
     # if there is bluetooth signal in data, return true
@@ -36,14 +35,12 @@ class Decoder:
         off_max = amp[off_freq_index].max()
         on_max = amp[on_freq_index].max()
 
-        notFinish = on_max >= 500 or off_max >= 500
-        print(list(np.int16(amp[on_freq_index])))
+        notFinish = on_max >= MIN_AMP or off_max >= MIN_AMP
+        print(list(np.int16(amp[on_freq_index])),
+              list(np.int16(amp[off_freq_index])))
         if notFinish:
-            self.buffer_off = np.append(
-                self.buffer_off, amp[off_freq_index] / off_max)
-            self.buffer_on = np.append(
-                self.buffer_on, amp[on_freq_index] / on_max)
-        else:
+            self.buffer = np.concatenate([self.buffer, data])
+        elif len(self.buffer) > 0:
             # start processing
             self.processBuffer()
 
@@ -76,7 +73,26 @@ class Decoder:
         return -1
 
     def processBuffer(self):
-        assert len(self.buffer_off) == len(self.buffer_on)
+        f, t, Zxx = signal.stft(
+            self.buffer, RATE, nperseg=SAMPLES, noverlap=0, boundary=None)
+        amp = np.abs(Zxx)
+
+        off_freq_index = findNearest(f, FREQ_OFF)
+        on_freq_index = findNearest(f, FREQ_ON)
+
+        off_max = amp[off_freq_index].max()
+        on_max = amp[on_freq_index].max()
+
+        self.buffer_off = amp[off_freq_index]/off_max
+        self.buffer_on = amp[on_freq_index]/on_max
+
+        if self.debug:
+            import matplotlib.pyplot as plt
+            x = np.arange(len(self.buffer_off))
+            plt.scatter(x, self.buffer_on, label="one")
+            plt.scatter(x, self.buffer_off, label="zero")
+            plt.show()
+
         current = self.findNextNonZero(0)
 
         bitLength = len(self.buffer_off)
@@ -94,16 +110,19 @@ class Decoder:
                 # everything fine
                 payloadStart = current + HEADER_LEN
                 if payloadStart + payloadLength > bitLength:
+                    print("Payload length too long {} {} {}".format(
+                        payloadStart, payloadLength, bitLength))
                     break
                 decodedStr = self.decodeBTBits(payloadStart, payloadLength)
                 self.output.append(decodedStr)
 
                 current = self.findNextNonZero(
-                    current + HEADER_LEN + payloadLength + 1)
+                    current + HEADER_LEN + payloadLength)
 
             # process bits
-        self.buffer_off = []
-        self.buffer_on = []
+        self.buffer_off = np.array([])
+        self.buffer_on = np.array([])
+        self.buffer = np.array([])
 
     def decodeHeader(self, start):
         bits = ""
@@ -114,6 +133,7 @@ class Decoder:
                 bits += "1"
             else:
                 bits += "0"
+        print("Header", bits)
 
         return bin2Int(bits[BLUETOOTH_PREFIX_LEN: BLUETOOTH_PREFIX_LEN + LEN_SIZE][::-1]) * 8
 
@@ -124,6 +144,7 @@ class Decoder:
             return ""
         decodedStr = ""
         decodedBits = ""
+        print("Starting to decode bits")
         for i in range(0, length, 8):
             asciiBit = ""
             asciiStart = start + i
@@ -134,6 +155,7 @@ class Decoder:
                     asciiBit += "0"
             decodedStr += bin2ASCII(asciiBit)
             decodedBits += asciiBit
+        print("Bits", decodedBits)
 
         return decodedStr
 
@@ -147,17 +169,16 @@ class Decoder:
 
 
 if __name__ == "__main__":
+    DEBUG = False
     decoder = Decoder(DEBUG)
 
     with open('test_recv.txt', 'r') as f:
         data = np.loadtxt(f)
-    print(len(data)//SAMPLES)
-    print(decoder.process(data))
-    import matplotlib.pyplot as plt
-    x = np.arange(len(decoder.buffer_off))
-    plt.scatter(x, decoder.buffer_on, label="one")
-    plt.scatter(x, decoder.buffer_off, label="zero")
-    plt.show()
-    print(decoder.processBuffer())
-    print(decoder.getOutput())
+
+    # decoder.process(data)
+    # decoder.process(np.zeros(CHUNK))
+
+    data = data.reshape((-1, CHUNK))
+    for d in data:
+        decoder.process(d)
     print(decoder.getOutput())

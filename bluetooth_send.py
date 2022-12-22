@@ -47,7 +47,7 @@ def FSK_signal(input_bin):
 
 
 if __name__ == "__main__":
-    s = "This is the code and the reasoning behind this is that for which humans find thast in from that"
+    s = "This si the code that they requiresd for the thing "
 
     bits = process_string(s)
     signal = [FSK_signal(bitstream) for bitstream in bits]
@@ -62,7 +62,8 @@ if __name__ == "__main__":
 
     p.terminate()
 
-    print(bits[0])
+    for b in bits:
+        print(b)
     with open('test.txt', 'w') as f:
         t = np.concatenate(signal)
         np.savetxt(f, t)
