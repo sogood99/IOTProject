@@ -13,7 +13,6 @@ CHUNK = 1024
 # listen for connection on socket, when received connection, start timer
 if __name__ == '__main__':
     # take the server name and port name
-    host = 'local host'
     port = 5000
     
     # create a socket at server side using TCP / IP protocol

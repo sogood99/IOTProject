@@ -19,7 +19,6 @@ if __name__ == '__main__':
                  np.arange(num_samples) * FREQ / RATE)).astype(np.int16)
 
     # connect to receiver server
-    host = 'local host'
     port = 5000
     
     # create a socket at client side using TCP / IP protocol
