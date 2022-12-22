@@ -2,18 +2,11 @@
 # always run distance_receiver first
 
 from utils import *
-import time
 import pyaudio
 import numpy as np
 
 AMPLITUDE = 32767
 DURATION = 0.1
-
-
-def measure_distance(time_elapsed):
-    # Calculate the distance by multiplying the time elapsed by the speed of sound
-    distance = time_elapsed * 343
-    return distance
 
 
 if __name__ == '__main__':
@@ -23,8 +16,18 @@ if __name__ == '__main__':
     sine_wave = (AMPLITUDE * np.sin(2 * np.pi *
                  np.arange(num_samples) * FREQ_ON / RATE)).astype(np.int16)
 
-    # start timer
-    start_time = time.time()
+    # connect to receiver server
+    host = 'local host'
+    port = 5000
+    
+    # create a socket at client side
+    # using TCP / IP protocol
+    s = socket.socket(socket.AF_INET,
+                    socket.SOCK_STREAM)
+    
+    # connect it to server and port
+    # number on local computer.
+    s.connect(('127.0.0.1', port))
 
     # play audio
     p = pyaudio.PyAudio()
@@ -34,11 +37,3 @@ if __name__ == '__main__':
     stream.stop_stream()
     stream.close()
     p.terminate()
-
-    # start listening for response
-
-    # when get a large amplitude => stop timer, stop listening
-
-    # get time elapsed
-
-    # measure distance
