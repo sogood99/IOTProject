@@ -98,12 +98,14 @@ class PyAudioWorker(QObject):
             self.finished.emit("", 0)
 
 
-class CustomWidget(QWidget):
+class RecvWidget(QWidget):
     def __init__(self, parent=None, debug=False):
         """
             Initialize many things for QWidget and set up GUI
         """
         super().__init__(parent)
+
+        self.setWindowTitle("Reciever")
 
         self.setFixedSize(900, 600)
         self.view = QWidget(self)
@@ -211,7 +213,7 @@ class CustomWidget(QWidget):
 
 def startRecvGUI(debug=False):
     a = QApplication(sys.argv)
-    w = CustomWidget(debug=debug)
+    w = RecvWidget(debug=debug)
     w.show()
     sys.exit(a.exec())
 

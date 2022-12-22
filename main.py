@@ -1,5 +1,6 @@
 import argparse
-from bluetooth.recv_gui import *
+import bluetooth
+import distance
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(
@@ -21,4 +22,11 @@ if __name__ == "__main__":
 
     if args.bluetooth:
         if args.recv:
-            startRecvGUI()
+            bluetooth.recv_gui.startRecvGUI()
+        else:
+            bluetooth.send_gui.startSendGUI()
+    else:
+        if args.recv:
+            pass
+        else:
+            pass

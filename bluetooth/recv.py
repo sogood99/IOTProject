@@ -125,7 +125,13 @@ class Decoder:
 
     def decodeHeader(self, start):
         bits = ""
-        assert len(self.buffer_on) >= start + HEADER_LEN
+        if len(self.buffer) < start + HEADER_LEN:
+            return None
+
+        prefixSimilarity = sum(1/BLUETOOTH_PREFIX_LEN for a,
+                               b in zip(self.buffer, BLUETOOTH_PREFIX) if a != b)
+        if prefixSimilarity < 1/2:
+            return None
 
         for i in range(HEADER_LEN):
             if self.metric(self.buffer_on, start+i) > 1/2:
