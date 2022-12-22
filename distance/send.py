@@ -4,13 +4,30 @@
 import pyaudio
 import numpy as np
 import socket
-from .utils import *
+from utils import *
 
 
 # Beep beep sender
 class Sender:
-    def __init__(self):
+    def __init__(self,addr):
+        self.s_send = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+        self.addr = addr
+
         self.s_recv = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+        self.s_recv.bind(('0.0.0.0', RECV_PORT))
+
+        self.p_in = pyaudio.PyAudio()
+        self.p_out = pyaudio.PyAudio()
+        self.stream_in = None
+        self.stream_out = None
+
+        self.t_a1, self.t_a2, self.t_a3 = None, None, None
+        self.t_b1, self.t_b2, self.t_b3 = None, None, None
+
+        self.listenThread = threading.Thread(target=self.startListen)
+        self.listenThread.start()
+
+        self.sendThread = None
 
 
 if __name__ == '__main__':
