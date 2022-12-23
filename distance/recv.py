@@ -30,7 +30,6 @@ class Recv:
             # idx = findNearest(fftfreq(CHUNK//10), FREQ)
             startTime = 0
             endTime = 0
-            OFFSET = 1715 - 150
             while True:
                 data = np.frombuffer(stream.read(CHUNK, False), dtype=np.int16)
 
@@ -41,11 +40,11 @@ class Recv:
 
                 if amp[idx].max() > 200:
                     endTime += np.where(amp[idx] > 100)[0][0] * NPERSEG
-                    print(endTime)
+                    # print(endTime)
                     # endTime = time.time()
                     t_diff = (endTime - startTime) / RATE
                     # t_diff = endTime - startTime
-                    print("dist ", 343 * t_diff * 100)
+                    # print("dist ", 343 * t_diff * 100)
                     x = 343 * t_diff * 100
                     # y = -156.91087048 + 0.72303024*x
                     dist.append(x)
@@ -60,5 +59,6 @@ class Recv:
             time.sleep(1)
         # plt.hist(dist, bins=10)
         # plt.show()
-        # print(np.mean(dist))
-        return np.mean(dist)
+        data = COEFF * np.median(dist) - OFFSET
+        print(data)
+        return data

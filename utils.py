@@ -21,8 +21,9 @@ RECV_PORT = 5000
 SEND_PORT = 5001
 FREQ = 2000
 AMPLITUDE = 32767
-NPERSEG = int(0.0008 * RATE)
-
+NPERSEG = int(0.001 * RATE)
+COEFF = 0.93098814
+OFFSET = 322.21851232
 
 def findNearest(array, value):
     return np.abs(array - value).argmin()
