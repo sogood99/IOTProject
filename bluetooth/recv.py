@@ -130,7 +130,7 @@ class Decoder:
             return None
 
         for i in range(HEADER_LEN):
-            if self.metric(self.buffer_on, start+i) > 1/2:
+            if self.metric(self.buffer_on, start+i) > self.metric(self.buffer_off, start+i):
                 bits += "1"
             else:
                 bits += "0"
@@ -150,7 +150,7 @@ class Decoder:
             asciiBit = ""
             asciiStart = start + i
             for j in range(8):
-                if self.metric(self.buffer_on, asciiStart + j) > 1/2:
+                if self.metric(self.buffer_on, asciiStart + j) > self.metric(self.buffer_off, asciiStart + j):
                     asciiBit += "1"
                 else:
                     asciiBit += "0"

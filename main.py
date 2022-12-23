@@ -17,6 +17,8 @@ if __name__ == "__main__":
                        action='store_true')
     group.add_argument('-r', '--recv',
                        action='store_true')
+    group.add_argument('-ip', '--ip', default="192.168.0.1")
+    group.add_argument('-p', '--port', default=5000)
 
     args = parser.parse_args()
 
@@ -27,6 +29,8 @@ if __name__ == "__main__":
             bluetooth.send_gui.startSendGUI()
     else:
         if args.recv:
-            pass
+            receiver = distance.recv.Recv(args.port)
+            receiver.start()
         else:
-            pass
+            sender = distance.send.Sender(args.ip, args.port)
+            sender.start()

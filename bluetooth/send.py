@@ -5,6 +5,7 @@
 
 import numpy as np
 import pyaudio
+import time
 from utils import *
 
 
@@ -18,6 +19,13 @@ class Sender:
                      for i in range(0, len(bin_string), MAX_LEN)]
         if len(list_data) == 0:
             list_data = [""]
+
+        # add 0 to end
+        if len(list_data[-1]) + 8 <= MAX_LEN:
+            list_data[-1] += ETX
+        else:
+            list_data.append(ETX)
+        print(list_data)
 
         def packet_data(data: str):
             length = "{0:08b}".format(len(data)//8)[::-1]
@@ -56,6 +64,7 @@ class Sender:
             width=2), channels=1, rate=RATE, output=True)
         for sig in signal:
             stream.write(np.int16(sig).tobytes())
+            time.sleep(0.5)
         stream.stop_stream()
         stream.close()
 

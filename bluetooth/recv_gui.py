@@ -29,6 +29,8 @@ class PyAudioWorker(QObject):
         self.debug = widget.debug
         self.total_data = np.array([])
 
+        self.lastReceiveTime = 0
+
         super().__init__()
 
     def closeStream(self):
@@ -76,19 +78,30 @@ class PyAudioWorker(QObject):
 
                 if lastBool == False and currentBool == True:
                     self.startTime = time.time()
+                    self.lastReceiveTime = time.time()
 
-                if lastBool == True and currentBool == False:
+                elif lastBool == True and currentBool == False:
                     print("Finished Decoding")
 
-                    self.decodedText = ""
+                    self.lastReceiveTime = time.time()
                     text = self.decoder.getOutput()
+                    print("Decoded Text", text)
                     while text != None:
                         self.decodedText += text
                         text = self.decoder.getOutput()
 
-                    if self.decodedText != "":
+                    # check if ETX char
+                    if self.decodedText != "" and ord(self.decodedText[-1]) == 3:
                         self.timeUsed = time.time()-self.startTime
-                        self.finished.emit(self.decodedText, self.timeUsed)
+                        self.finished.emit(
+                            self.decodedText[:-1], self.timeUsed)
+                        self.recieve = False
+                elif lastBool == False and currentBool == False and self.lastReceiveTime != 0:
+                    timeDiff = time.time() - self.lastReceiveTime
+                    if timeDiff > 5:
+                        self.timeUsed = time.time()-self.startTime
+                        self.finished.emit(
+                            self.decodedText, self.timeUsed)
                         self.recieve = False
 
                 lastBool = currentBool
