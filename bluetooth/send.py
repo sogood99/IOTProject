@@ -64,7 +64,7 @@ class Sender:
             width=2), channels=1, rate=RATE, output=True)
         for sig in signal:
             stream.write(np.int16(sig).tobytes())
-            time.sleep(0.5)
+            time.sleep(1.5)
         stream.stop_stream()
         stream.close()
 
