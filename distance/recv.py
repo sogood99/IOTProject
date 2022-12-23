@@ -1,10 +1,12 @@
 import socket
+import struct
 import time
 import numpy as np
 import pyaudio
 import threading
 from scipy.fft import fft, fftfreq
 from utils import *
+
 
 # beep beep receiver
 
@@ -25,7 +27,6 @@ class Recv:
         self.t_b1, self.t_b2, self.t_b3 = None, None, None
 
         self.listenThread = threading.Thread(target=self.startListen)
-        self.listenThread.start()
 
         self.sendThread = None
 
@@ -34,19 +35,26 @@ class Recv:
             format=pyaudio.paInt16, channels=1, rate=RATE, input=True)
 
         isA3 = True
+        A3Ended = False
         while True:
             data = self.stream_in.read(CHUNK, exception_on_overflow=False)
             data = np.frombuffer(data, dtype=np.int16)
             freq = findNearest(fftfreq(len(data), d=1 / RATE), FREQ)
-            data_fft = fft(data)[freq]
+            data_fft = np.abs(fft(data)[freq])
 
-            if data_fft > 1500:
+            #print(data_fft)
+
+            if data_fft.max() > 500:
                 if isA3:
                     self.t_a3 = time.time()
+                    print("Received A3 at {}".format(self.t_a3))
                     isA3 = False
-                else:
+                elif A3Ended:
                     self.t_b2 = time.time()
+                    print("Received B2 at {}".format(self.t_b2))
                     break
+            elif isA3:
+                A3Ended = True
 
         self.stream_in.stop_stream()
         self.stream_in.close()
@@ -54,7 +62,7 @@ class Recv:
 
     def startSend(self, addr):
         wav = (AMPLITUDE * np.sin(2 * np.pi * np.arange(SAMPLES)
-               * FREQ / RATE)).astype(np.int16)
+                                  * FREQ / RATE)).astype(np.int16)
         self.stream_out = self.p_out.open(format=pyaudio.paInt16, channels=1, rate=RATE, output=True,
                                           frames_per_buffer=CHUNK)
         self.s_send.connect((addr, SEND_PORT))
@@ -68,17 +76,36 @@ class Recv:
 
     def start(self):
         self.s_recv.listen(1)
-        _, addr = self.s_recv.accept()
+        s, addr = self.s_recv.accept()
 
         self.t_a1 = time.time()
 
-        self.sendThread = threading.Thread(target=self.startSend, args=(addr,))
+        self.listenThread.start()
+
+        self.sendThread = threading.Thread(target=self.startSend, args=(addr[0],))
         self.sendThread.start()
 
         self.sendThread.join()
         self.listenThread.join()
 
+        b_diff = s.recv(1024)
+        b_diff = struct.unpack('f', b_diff)[0]
+        print(b_diff)
+
+        c = 337 * 100
+        D = c / 2 * ((self.t_a3 - self.t_a1) - b_diff)
+
+        self.s_recv.close()
+        self.s_send.close()
+        return D
+
 
 # listen for connection on socket, when received connection, start timer
 if __name__ == '__main__':
-    pass
+    d = []
+    for i in range(10):
+        receiver = Recv()
+        d.append(receiver.start())
+        time.sleep(0.5)
+    print(d)
+    print(sum(d) / len(d))
