@@ -22,6 +22,7 @@ class Recv:
 
         # transmit 20 packets and take mean
         while len(dist) < 20:
+            self.startRecv = time.time()
             client, addr = s.accept()
 
             p = pyaudio.PyAudio()
@@ -53,6 +54,7 @@ class Recv:
             stream.stop_stream()
             stream.close()
             time.sleep(1)
+        self.endRecv = time.time()
         data = COEFF * np.median(dist) - OFFSET
-        print(data)
+        print("Used {}s".format(self.endRecv - self.startRecv))
         return data
