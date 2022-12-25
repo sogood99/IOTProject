@@ -4,7 +4,6 @@ from PyQt5.QtCore import *
 from matplotlib.backends.backend_qt5agg import FigureCanvasQTAgg
 from matplotlib.figure import Figure
 import pyaudio
-import numpy as np
 import time
 from .recv import Decoder
 from utils import *
@@ -55,7 +54,7 @@ class PyAudioWorker(QObject):
             return
         self.recieve = True
 
-        # Finish setup, start recieving
+        # Finish setup, start receiving
 
         self.p = pyaudio.PyAudio()
         self.stream = self.p.open(format=pyaudio.paInt16, channels=1, rate=RATE, input=True,
@@ -92,14 +91,14 @@ class PyAudioWorker(QObject):
 
                     # check if ETX char
                     if self.decodedText != "" and ord(self.decodedText[-1]) == 3:
-                        self.timeUsed = time.time()-self.startTime
+                        self.timeUsed = time.time() - self.startTime
                         self.finished.emit(
                             self.decodedText[:-1], self.timeUsed)
                         self.recieve = False
                 elif lastBool == False and currentBool == False and self.lastReceiveTime != 0:
                     timeDiff = time.time() - self.lastReceiveTime
-                    if timeDiff > 5:
-                        self.timeUsed = time.time()-self.startTime
+                    if timeDiff > 15:
+                        self.timeUsed = time.time() - self.startTime
                         self.finished.emit(
                             self.decodedText, self.timeUsed)
                         self.recieve = False
@@ -107,8 +106,6 @@ class PyAudioWorker(QObject):
                 lastBool = currentBool
 
         self.closeStream()
-        if self.timeUsed == 0:
-            self.finished.emit("", 0)
 
 
 class RecvWidget(QWidget):
@@ -148,7 +145,7 @@ class RecvWidget(QWidget):
 
         self.recieveLabel = QLabel(self)
         self.recieveLabel.setGeometry(100, 425, 100, 50)
-        self.recieveLabel.setText("Not Recieving")
+        self.recieveLabel.setText("Not Receiving")
 
         self.textBox = QTextEdit(self)
         self.textBox.setGeometry(500, 0, 400, 500)
@@ -195,6 +192,7 @@ class RecvWidget(QWidget):
                 msg.setStandardButtons(QMessageBox.Ok)
                 msg.exec()
             self.stop()
+
         self.worker.finished.connect(pyaudioFinished)
         self.thread.finished.connect(self.thread.deleteLater)
 
@@ -206,7 +204,7 @@ class RecvWidget(QWidget):
     def stop(self):
         self.recieveIndicator.setStyleSheet(
             "QLabel { background-color: grey }")
-        self.recieveLabel.setText("Not Recieving")
+        self.recieveLabel.setText("Not Receiving")
         if self.debug:
             self.total_data = self.worker.total_data
             canvas = FigureCanvasQTAgg(Figure(figsize=(8, 5)))
