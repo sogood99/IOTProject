@@ -67,6 +67,7 @@ class Decoder:
 
         return -1
 
+    # call when no more data has been read, start processing data in memory buffer
     def processBuffer(self):
         f, t, Zxx = signal.stft(
             self.buffer, RATE, nperseg=SAMPLES, noverlap=0, boundary=None)
@@ -119,6 +120,8 @@ class Decoder:
         self.buffer_on = np.array([])
         self.buffer = np.array([])
 
+    # decode the header starting from self.buffer[start]
+    # returns payload length if prefix match, None otherwise
     def decodeHeader(self, start):
         bits = ""
         if len(self.buffer) < start + HEADER_LEN:
@@ -139,7 +142,6 @@ class Decoder:
         return bin2Int(bits[BLUETOOTH_PREFIX_LEN: BLUETOOTH_PREFIX_LEN + LEN_SIZE][::-1]) * 8
 
     # decode bluetooth bits to ascii, if error output None
-
     def decodeBTBits(self, start, length):
         if length == 0:
             return ""
@@ -160,6 +162,7 @@ class Decoder:
 
         return decodedStr
 
+    # return the output one by one
     def getOutput(self) -> str:
         if len(self.output) > 0:
             return self.output.pop(0)

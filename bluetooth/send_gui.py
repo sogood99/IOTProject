@@ -7,6 +7,7 @@ from utils import *
 
 
 class PyaudioWorker(QObject):
+    # Worker inside QThread that sends sound signal, and measures time used to send
     sender = Sender()
     finished = pyqtSignal(float)
     text = ""
@@ -45,6 +46,7 @@ class SendWidget(QWidget):
         self.thread = QThread(self)
 
     def send(self):
+        # send textbox text to PyAudioWorker
         text = self.textBox.toPlainText()
 
         self.closeWorker()

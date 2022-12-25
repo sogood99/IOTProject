@@ -12,6 +12,8 @@ import time
 class Sender:
 
     def __init__(self, addr, port=5000) -> None:
+        self.hostIP = addr
+        self.port = port
         pass
 
     def start(self):
@@ -20,13 +22,12 @@ class Sender:
             width=2), channels=1, rate=RATE, output=True)
         signal = AMPLITUDE * np.sin(np.pi * 2 * FREQ *
                                     np.arange(0, 0.2, 1.0 / RATE))
-        port = 5000
-        host_ip = "192.168.0.156"
         while (1):
             s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
 
+            # keep on connecting until host refuses
             try:
-                s.connect((host_ip, port))
+                s.connect((self.hostIP, self.port))
             except socket.error:
                 break
 

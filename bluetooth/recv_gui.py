@@ -10,6 +10,7 @@ from utils import *
 
 
 class PyAudioWorker(QObject):
+    # Used in QThread to recieve audio signal
     finished = pyqtSignal(str, float)
 
     def __init__(self, widget) -> None:
@@ -61,10 +62,10 @@ class PyAudioWorker(QObject):
                                   frames_per_buffer=CHUNK)
 
         self.total_data = np.array([])
-        lastBool = False
+        lastBool = False  # if last data read from buffer contains usable data
         while self.recieve:
             if self.firstRecv:
-                # remove first recv due to
+                # remove first recv due to noise
                 np.frombuffer(self.stream.read(CHUNK), dtype=np.int16)
                 self.firstRecv = False
             else:
@@ -76,10 +77,12 @@ class PyAudioWorker(QObject):
                     print(self.total_data)
 
                 if lastBool == False and currentBool == True:
+                    # recieved start of packet
                     self.startTime = time.time()
                     self.lastReceiveTime = time.time()
 
                 elif lastBool == True and currentBool == False:
+                    # finished recieving all of packet, no more usable data in current chunk
                     print("Finished Decoding")
 
                     self.lastReceiveTime = time.time()
@@ -96,6 +99,7 @@ class PyAudioWorker(QObject):
                             self.decodedText[:-1], self.timeUsed)
                         self.recieve = False
                 elif lastBool == False and currentBool == False and self.lastReceiveTime != 0:
+                    # if havent recieved any usable data, check if time > a long time
                     timeDiff = time.time() - self.lastReceiveTime
                     if timeDiff > 15:
                         self.timeUsed = time.time() - self.startTime

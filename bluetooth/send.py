@@ -13,6 +13,8 @@ from utils import *
 # assume data length <= 31
 
 class Sender:
+    # input string, split string into 0<= len <= 31 chunks, process into binary,
+    # and add bluetooth header
     def processString(self, s):
         bin_string = str2Bin(s)
         list_data = [bin_string[i:i+MAX_LEN]
@@ -55,6 +57,7 @@ class Sender:
         signal = np.int16(signal)
         return signal
 
+    # send packet to audio
     def process(self, s):
         bits = self.processString(s)
         signal = [self.FSK_signal(bitstream) for bitstream in bits]
@@ -72,7 +75,7 @@ class Sender:
 
 
 if __name__ == "__main__":
-    s = "This si the code that they requiresd for the thing "
+    s = "test code"
 
     sender = Sender()
     sender.process(s)
