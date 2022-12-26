@@ -6,6 +6,10 @@ General help `python main.py --help`
 
 1. Bluetooth Emulation
 
+   Use audio signal to emulate and transfer bluetooth packets, eg. the following spectrogram for frequency of 1000hz and 2000hz
+
+   ![audio-signal](fig/dataSTFT.png "Audio for Bluetooth Signal")
+
    - Sender
 
      Run `python main.py -b -s`
